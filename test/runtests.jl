@@ -17,65 +17,6 @@ y = convert(Array{Float64},df2[4])
 #Peaks = peaks(t,y)
 Peaks = peaks2(t,y)
 
-#=
-#beging Test
-
-
-N = length(t)
-jPeak = 1
-jDip = 1
-ratio = 1.01
-flag = "Dip"
-Peak = ones(N,2) # 1 for t, 2 for y
-Dip = Peak
-PeakTmp = Peak
-DipTmp = Peak
-PeakTmp[jPeak,1:2] = [t[1],y[1]]
-DipTmp[jDip,:] = PeakTmp[1,:]
-for i=1:N
-    if y[i] > PeakTmp[jPeak,2]
-        PeakTmp[jPeak,:] = [t[i],y[i]]
-        if flag == "Dip"
-            DipTmp[jDip,:] = [t[i],y[i]]
-        end
-        if flag == "Peak"
-            if PeakTmp[jPeak,2]/ratio > DipTmp[jDip,2]
-                Dip[jDip,1:2] = DipTmp[jDip,1:2]
-                jDip = jDip + 1
-                flag = "Dip"
-                DipTmp[jDip,:] = [t[i],y[i]]
-            end
-        end
-    end
-    if y[i] < DipTmp[jDip,2]
-        DipTmp[jDip,:] = [t[i],y[i]]
-        if flag == "Peak"
-            PeakTmp[jDip,:] = [t[i],y[i]]
-        end
-        if flag == "Dip"
-            if PeakTmp[jPeak,2]/ratio > DipTmp[jDip,2]
-                Peak[jPeak,1:2] = PeakTmp[jPeak,1:2]
-                jPeak = jPeak + 1
-                flag = "Peak"
-                PeakTmp[jPeak,:] = [t[i],y[i]]
-            end
-        end
-    end
-end
-# cut the ends of the Peak
-Peak2 = ones(jPeak,2)
-for i=1:jPeak
-    Peak2[i,:] = Peak[i,:]
-end
-
-Peaks = Peak2
-
-
-#end Test
-
-=#
-
-
 N = Int64(length(Peaks)/ndims(Peaks))
 tPeaks1 = Peaks[:,1]
 tPeaks2 = ones(N-1) #initialize an array
