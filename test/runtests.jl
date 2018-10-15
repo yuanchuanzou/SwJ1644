@@ -101,10 +101,6 @@ dfDips = DataFrame(t=Dips[:,1], d=Dips[:,2])
 dfPredicts = DataFrame(tp=tp4)
 p = ggplot(data=tt, aes(x=tt[:t],y=tt[:y]))+
     geom_point(size=0.1, color="grey")+
-    #layer(
-    #data=tt, geom="line", stat="identity", position="identity", 
-    #mapping = aes(x=tt[:t], y=tt[:y])
-    #)+
     geom_vline(xintercept=dfPredicts[:tp], size=0.1, color="grey")+
     geom_point(data=dfPeaks, aes(x=dfPeaks[:t],y=dfPeaks[:p]), size=0.5, color="red")+
     geom_point(data=dfDips, aes(x=dfDips[:t],y=dfDips[:d]), size=0.5, color="blue")+
