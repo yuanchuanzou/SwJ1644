@@ -14,8 +14,8 @@ df2 = sort!(df)
 #A1 = convert(Array,df2)
 t = convert(Array{Float64},df2[1])
 y = convert(Array{Float64},df2[4])
-#Peaks = peaks(t,y)
-Peaks = peaks2(t,y)
+#Peaks = peaks(t,y) # An easy way to find the peaks
+Peaks,Dips = peaks2(t,y) # A more proper way.
 
 N = Int64(length(Peaks)/ndims(Peaks))
 tPeaks1 = Peaks[:,1]
@@ -25,6 +25,54 @@ for i=1:N-1
     tPeaks2[i] = (tPeaks1[i+1]+tPeaks1[i])/2
     DeltatPeak[i] = tPeaks1[i+1]-tPeaks1[i]
 end
+println("The observed number of peaks are: ", N-1)
+
+### To get the Period changing theoretically
+
+function eptFun(ep0::Float64,t0::Float64,t::Float64,nTidal::Float64)
+    ep1 = ep0*(t/t0)^nTidal
+end
+
+function ept(t)
+    ep2 = eptFun(ep0,t0,t,nTidal)
+end
+
+# parameters 
+ep0 = 1e-3 # ep0: a small value, short for 'epsilon'
+t0 = 1.0 #right now, the ti is just the number i
+nTidal = -0.2
+MBH = 7e6 # mass of the central BH, in unit of M_sun
+Rp = 1e14 # Rp: the distance of pericenter to the BH, in unit of cm
+Rp = Rp/1.49597871E13 # convert to AU
+N = 4*Int64(floor(1/ep0)) # the integer part of a float
+e = zeros(N)
+e[1] = 0.6
+G = 6.67242E-8
+P = zeros(N)
+P[1] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[1]))^1.5
+N2 = 0
+for i in 2:N
+    ep = ept(Float64(i))
+    tmp1 = sqrt(1+e[i-1])-ep
+    e[i] = (tmp1/(1-ep))^2-1.0
+    if e[i] >= 1.0
+        println("This is the last orbit! eccentricity:", e[i])
+        break
+    end
+    P[i] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[i]))^1.5
+    #println(i, " tmp1: ", tmp1, " e[i]: ", e[i], " P[i]:", P[i])
+    global(N2) = N2 + 1
+end
+e2 = e[1:N2-1] #truncate the tails, which was set to be larger
+P2 = P[1:N2-1]
+tp3 = P2[1]
+tp4 = ones(N2-1)
+tp4[1] = tp3
+for i in 2:N2-1
+    global(tp3) = tp3 + P2[i]
+    tp4[i] = tp3
+end
+println("The predicted number of orbits are: ", N2-1)
 
 #= using Plots
 #using Gadfly
@@ -37,27 +85,35 @@ savefig("fig.png")
 using RCall
 @rlibrary ggplot2
 dat = DataFrame(tP=tPeaks2, DP=DeltatPeak)
-p = ggplot(data=dat, aes(x=log10.(dat[:tP]), y=log10.(dat[:DP])))
-p = p + geom_point(size=2)
+dat2 = DataFrame(tp2=tp4, DP2=P2)
+ggplot(data=dat, aes(x=log10.(dat[:tP]), y=log10.(dat[:DP]))) +
+    geom_point(size=2) +
+    geom_line(data=dat2, aes(x=log10.(dat2.tp2),y=log10.(dat2.DP2))) +
+    geom_point(data=dat2, aes(x=log10.(dat2.tp2),y=log10.(dat2.DP2)), size=1, color="red") +
+    xlab("log10(time) (s)") + ylab("log10(Period) (s)")
 #print(p)
 ggsave(file="Period-t.eps")
 
-# To plot the light curves and the peaks are emphersized
+# To plot the light curves, together with the peaks, dips and predictions.
 tt = DataFrame(t=t, y=y)
 dfPeaks = DataFrame(t=Peaks[:,1], p=Peaks[:,2])
-p = ggplot(data=dfPeaks, aes(x=dfPeaks[:t],y=dfPeaks[:p]))
-#p = ggplot(data=DataFrame(x=t,y=y),aes(x=:x,y=:y))
-#p = ggplot(data=DataFrame(x=df2[1],y=df2[4])),aes(x=:x,y=:y)
-p = p + geom_point(size=2,color="red")
-#p = p + geom_point(aes(x=:df2[1],y=:df2[4]),size=2,color="grey")
-#p = p + geom_point(aes(x=tPeaks2,y=DeltatPeak),size=2,color="grey")
-#p = p + geom_point(aes(x=tt[:t],y=tt[:y]),size=2,color="grey")
-p = p + layer(
-    data=tt, geom="point", stat="identity", position="identity", 
-    mapping = aes(x=tt[:t], y=tt[:y])
-)
-#p = p + geom_point(size=1, color="grey")
-p = p + scale_x_log10() + scale_y_log10()
-print(p)
-ggsave(file="light-curves.eps")
-#p = ggplot(data=df2,aes(x=dat[:tP],y=dat[:DP]))
+dfDips = DataFrame(t=Dips[:,1], d=Dips[:,2])
+dfPredicts = DataFrame(tp=tp4)
+p = ggplot(data=tt, aes(x=tt[:t],y=tt[:y]))+
+    geom_point(size=0.1, color="grey")+
+    #layer(
+    #data=tt, geom="line", stat="identity", position="identity", 
+    #mapping = aes(x=tt[:t], y=tt[:y])
+    #)+
+    geom_vline(xintercept=dfPredicts[:tp], size=0.1, color="grey")+
+    geom_point(data=dfPeaks, aes(x=dfPeaks[:t],y=dfPeaks[:p]), size=0.5, color="red")+
+    geom_point(data=dfDips, aes(x=dfDips[:t],y=dfDips[:d]), size=0.5, color="blue")+
+    scale_x_log10() + scale_y_log10()+
+    xlab("log10(time) (s)") + ylab("log10(Flux) (erg/cm^2/s)")
+#p = p + theme(legend.title=element_blank())
+#print(p)
+ggsave(file="light-curves.pdf")
+
+# Just plot part of the light curves to have a better look
+p = p + xlim(1.5e6,1.6e6)
+ggsave(file="light-curves-zoom-in.pdf")

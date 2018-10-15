@@ -49,10 +49,10 @@ function peaks2(t,y)
     N = length(t)
     jPeak = 1
     jDip = 1
-    ratio = 1.01
-    flag = "Dip"
+    ratio = 2.5
+    flag = "Peak"
     Peak = ones(N,2) # 1 for t, 2 for y
-    # Dip = Peak # be careful, this makes these two are equal everywhere
+    # Dip = Peak # Be careful, this makes these two are equal everywhere
     Dip = ones(N,2)
     PeakTmp = ones(N,2)
     DipTmp = ones(N,2)
@@ -62,19 +62,17 @@ function peaks2(t,y)
         if y[i] > y[i-1]
             if y[i] > PeakTmp[jPeak,2]
                 PeakTmp[jPeak,:] = [t[i],y[i]]
-                println("PeakTmp[jPeak,:]", PeakTmp[jPeak,:], " y[i]: ", y[i], " y[i-1]: ", y[i-1])
             end
-    #        if flag == "Dip"
-    #            DipTmp[jDip,:] = [t[i],y[i]]
-                #println(DipTmp[jDip,:])
-    #        end
             if flag == "Peak"
-                println("Now in peak")
+                if DipTmp[jDip,1] <= PeakTmp[jPeak,1]
+                    DipTmp[jDip,:] = [t[i],y[i]]
+                end
+            #end
+            elseif flag == "Dip"
                 if PeakTmp[jPeak,2]/ratio > DipTmp[jDip,2]
                     Dip[jDip,1:2] = DipTmp[jDip,1:2]
                     jDip = jDip + 1
-                    println("jDip:", jDip)
-                    flag = "Dip"
+                    flag = "Peak"
                     DipTmp[jDip,:] = [t[i],y[i]]
                 end
             end
@@ -82,31 +80,31 @@ function peaks2(t,y)
         if y[i] < y[i-1]
             if y[i] < DipTmp[jDip,2]
                 DipTmp[jDip,:] = [t[i],y[i]]
-                println("DipTmp[jDip,:] ", DipTmp[jDip,:], " y[i]: ", y[i], " y[i-1]: ", y[i-1])
             end
-    #        if flag == "Peak"
-    #            PeakTmp[jPeak,:] = [t[i],y[i]]
-    #            println("Now in Peak 2, PeakTmp:", PeakTmp[jPeak,:])
-    #        end
             if flag == "Dip"
-                println(i, " Now in Dip 2, PeakTmp: ", PeakTmp[jPeak,2],", DipTmp:", DipTmp[jDip,2])
+                if PeakTmp[jPeak,1] <= DipTmp[jDip,1]
+                    PeakTmp[jPeak,:] = [t[i],y[i]]
+                end
+            #end
+            elseif flag == "Peak"
+                #println(i, " Now in Peak 2, PeakTmp: ", PeakTmp[jPeak,2],", DipTmp:", DipTmp[jDip,2])
                 if PeakTmp[jPeak,2]/ratio > DipTmp[jDip,2]
                     Peak[jPeak,1:2] = PeakTmp[jPeak,1:2]
                     jPeak = jPeak + 1
-                    println("jPeak:", jPeak)
-                    flag = "Peak"
+                    flag = "Dip"
                     PeakTmp[jPeak,:] = [t[i],y[i]]
                 end
             end
         end
     end
-        # cut the ends of the Peak
-    Peak2 = ones(jPeak,2)
-    for i=1:jPeak
+    # cut the ends of the Peaks and Dips
+    Peak2 = ones(jPeak-1,2)
+    Dip2 = ones(jPeak-1,2)
+    for i in 1:jPeak-1
         Peak2[i,:] = Peak[i,:]
+        Dip2[i,:] = Dip[i,:]
     end
-    return Peak2
-    # can also return Dips
+    return Peak2,Dip2
 end
 
 # plot 
