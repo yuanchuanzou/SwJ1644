@@ -111,5 +111,6 @@ p = ggplot(data=tt, aes(x=tt[:t],y=tt[:y]))+
 ggsave(file="light-curves.pdf")
 
 # Just plot part of the light curves to have a better look
-p = p + xlim(1.5e6,1.6e6)
+#p = p + xlim(1.5e6,1.6e6)
+p = p + xlim(1.5e5,2.6e5)
 ggsave(file="light-curves-zoom-in.pdf")
