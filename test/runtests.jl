@@ -37,42 +37,57 @@ function ept(t)
     ep2 = eptFun(ep0,t0,t,nTidal)
 end
 
-# parameters 
-ep0 = 1e-3 # ep0: a small value, short for 'epsilon'
-t0 = 1.0 #right now, the ti is just the number i
-nTidal = -0.2
-MBH = 7e6 # mass of the central BH, in unit of M_sun
-Rp = 1e14 # Rp: the distance of pericenter to the BH, in unit of cm
-Rp = Rp/1.49597871E13 # convert to AU
-N = 4*Int64(floor(1/ep0)) # the integer part of a float
-e = zeros(N)
-e[1] = 0.6
-G = 6.67242E-8
-P = zeros(N)
-P[1] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[1]))^1.5
-N2 = 0
-for i in 2:N
-    ep = ept(Float64(i))
-    tmp1 = sqrt(1+e[i-1])-ep
-    e[i] = (tmp1/(1-ep))^2-1.0
-    if e[i] >= 1.0
-        println("This is the last orbit! eccentricity:", e[i])
-        break
+function main()
+    # parameters 
+    DL = 3.7e27 # Luminosity distance in unit of cm
+    c = 2.9979e10
+    eta = 1.e-1 # The efficiency converting mass to X-rays
+    mStar = 2e33 # Mass of the star 
+    mm = mStar
+    ep0 = 1e-3 # ep0: a small value, short for 'epsilon'
+    t0 = 1.0 # Right now, the ti is just the number i
+    nTidal = -0.2
+    MBH = 7e6 # Mass of the central BH, in unit of M_sun
+    Rp = 1e14 # Rp: the distance of pericenter to the BH, in unit of cm
+    Rp = Rp/1.49597871E13 # convert to AU
+    N = 4*Int64(floor(1/ep0)) # the integer part of a float
+    dm = ones(N) # Initialize the mass 
+    e = zeros(N)
+    e[1] = 0.6
+    G = 6.67242E-8
+    P = zeros(N)
+    P[1] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[1]))^1.5
+    N2 = 0
+    for i in 2:N
+        ep = ept(Float64(i))
+        tmp1 = sqrt(1+e[i-1])-ep
+        e[i] = (tmp1/(1-ep))^2-1.0
+        dm[i] = ep * mm
+        mm = mm - dm[i] # why global? weird
+        if e[i] >= 1.0
+            println("This is the last orbit! eccentricity:", e[i], " mass:", mm)
+            break
+        end
+        P[i] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[i]))^1.5
+        #println(i, " tmp1: ", tmp1, " e[i]: ", e[i], " P[i]:", P[i])
+        N2 = N2 + 1
     end
-    P[i] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[i]))^1.5
-    #println(i, " tmp1: ", tmp1, " e[i]: ", e[i], " P[i]:", P[i])
-    global(N2) = N2 + 1
+    e2 = e[1:N2-1] #truncate the tails, which was set to be larger
+    P2 = P[1:N2-1]
+    tp3 = P2[1]
+    tp4 = ones(N2-1)
+    tp4[1] = tp3
+    for i in 2:N2-1
+        tp3 = tp3 + P2[i]
+        tp4[i] = tp3
+    end
+    dm2 = dm[1:N2-1]
+    dm2[1] = dm2[2] # tmp use 
+    Fx = 1e6 * eta .* dm2 * c^2 / (4*pi*DL^2) ./ P2 #(time)
+    println("The predicted number of orbits are: ", N2-1)
 end
-e2 = e[1:N2-1] #truncate the tails, which was set to be larger
-P2 = P[1:N2-1]
-tp3 = P2[1]
-tp4 = ones(N2-1)
-tp4[1] = tp3
-for i in 2:N2-1
-    global(tp3) = tp3 + P2[i]
-    tp4[i] = tp3
-end
-println("The predicted number of orbits are: ", N2-1)
+
+main()
 
 #= using Plots
 #using Gadfly
@@ -99,11 +114,13 @@ tt = DataFrame(t=t, y=y)
 dfPeaks = DataFrame(t=Peaks[:,1], p=Peaks[:,2])
 dfDips = DataFrame(t=Dips[:,1], d=Dips[:,2])
 dfPredicts = DataFrame(tp=tp4)
+dfFx = DataFrame(t=tp4, Fx=Fx)
 p = ggplot(data=tt, aes(x=tt[:t],y=tt[:y]))+
     geom_point(size=0.1, color="grey")+
-    geom_vline(xintercept=dfPredicts[:tp], size=0.1, color="grey")+
+    #geom_vline(xintercept=dfPredicts[:tp], size=0.1, color="grey")+
     geom_point(data=dfPeaks, aes(x=dfPeaks[:t],y=dfPeaks[:p]), size=0.5, color="red")+
-    geom_point(data=dfDips, aes(x=dfDips[:t],y=dfDips[:d]), size=0.5, color="blue")+
+    #geom_point(data=dfDips, aes(x=dfDips[:t],y=dfDips[:d]), size=0.5, color="blue")+
+    geom_point(data=dfFx, aes(x=dfFx[:t],y=dfFx[:Fx]), size=0.2, color="orange")+
     scale_x_log10() + scale_y_log10()+
     xlab("log10(time) (s)") + ylab("log10(Flux) (erg/cm^2/s)")
 #p = p + theme(legend.title=element_blank())
@@ -112,5 +129,5 @@ ggsave(file="light-curves.pdf")
 
 # Just plot part of the light curves to have a better look
 #p = p + xlim(1.5e6,1.6e6)
-p = p + xlim(1.5e5,2.6e5)
+p = p + xlim(1.e3,5e3)
 ggsave(file="light-curves-zoom-in.pdf")
