@@ -33,22 +33,22 @@ function eptFun(ep0::Float64,t0::Float64,t::Float64,nTidal::Float64)
     ep1 = ep0*(t/t0)^nTidal
 end
 
-function ept(t)
-    ep2 = eptFun(ep0,t0,t,nTidal)
-end
+#function ept(t::Float64)
+#    ep2 = eptFun(ep0,t0,t,nTidal)
+#end #Trying to use this to reduce the number of dumbs. New version of Julia forbids it?
 
-function main()
+function calcul()
     # parameters 
     DL = 3.7e27 # Luminosity distance in unit of cm
     c = 2.9979e10
-    eta = 1.e-1 # The efficiency converting mass to X-rays
-    mStar = 2e33 # Mass of the star 
+    eta = 10 # The efficiency converting mass to X-rays
+    mStar = 5*2e33 # Mass of the star 
     mm = mStar
-    ep0 = 1e-3 # ep0: a small value, short for 'epsilon'
+    ep0 = 1e-3 # ep0: a small value, short for 'epsilon', a part being accreted
     t0 = 1.0 # Right now, the ti is just the number i
     nTidal = -0.2
     MBH = 7e6 # Mass of the central BH, in unit of M_sun
-    Rp = 1e14 # Rp: the distance of pericenter to the BH, in unit of cm
+    Rp = 1*1e14 # Rp: the distance of pericenter to the BH, in unit of cm
     Rp = Rp/1.49597871E13 # convert to AU
     N = 4*Int64(floor(1/ep0)) # the integer part of a float
     dm = ones(N) # Initialize the mass 
@@ -59,11 +59,11 @@ function main()
     P[1] = 2*pi/sqrt(G*MBH) * (Rp/(1-e[1]))^1.5
     N2 = 0
     for i in 2:N
-        ep = ept(Float64(i))
+        ep = eptFun(ep0,t0,Float64(i),nTidal) #ept(Float64(i))
         tmp1 = sqrt(1+e[i-1])-ep
         e[i] = (tmp1/(1-ep))^2-1.0
         dm[i] = ep * mm
-        mm = mm - dm[i] # why global? weird
+        mm = mm - dm[i] # why global? weird. Ans: When the whole block is inside a function, you don't need.
         if e[i] >= 1.0
             println("This is the last orbit! eccentricity:", e[i], " mass:", mm)
             break
@@ -83,11 +83,15 @@ function main()
     end
     dm2 = dm[1:N2-1]
     dm2[1] = dm2[2] # tmp use 
-    Fx = 1e6 * eta .* dm2 * c^2 / (4*pi*DL^2) ./ P2 #(time)
+    #Fx = 1e6 * eta .* dm2 * c^2 / (4*pi*DL^2) ./ P2 #(time)
+    z = 0.35 #redshift
+    alpha = 0.6 #spectral index
+    Fx = (1+z) * ((1-alpha)*(10/0.3)^(-alpha)/((10/0.3)^(1-alpha)-1)) * 1e23 * eta .* dm2 * c^2 / (4*pi*DL^2) /(1e4*2.418e14) ./ P2 #flux at 10 keV, in Jy
     println("The predicted number of orbits are: ", N2-1)
+    return tp4, P2, Fx
 end
 
-main()
+tp4, P2, Fx = calcul()
 
 #= using Plots
 #using Gadfly
@@ -105,9 +109,10 @@ ggplot(data=dat, aes(x=log10.(dat[:tP]), y=log10.(dat[:DP]))) +
     geom_point(size=2) +
     geom_line(data=dat2, aes(x=log10.(dat2.tp2),y=log10.(dat2.DP2))) +
     geom_point(data=dat2, aes(x=log10.(dat2.tp2),y=log10.(dat2.DP2)), size=1, color="red") +
-    xlab("log10(time) (s)") + ylab("log10(Period) (s)")
+    xlab("log10(time) (s)") + ylab("log10(Period) (s)") + 
+    theme_bw()
 #print(p)
-ggsave(file="Period-t.eps")
+ggsave(file="Period-t.pdf")
 
 # To plot the light curves, together with the peaks, dips and predictions.
 tt = DataFrame(t=t, y=y)
@@ -122,12 +127,13 @@ p = ggplot(data=tt, aes(x=tt[:t],y=tt[:y]))+
     #geom_point(data=dfDips, aes(x=dfDips[:t],y=dfDips[:d]), size=0.5, color="blue")+
     geom_point(data=dfFx, aes(x=dfFx[:t],y=dfFx[:Fx]), size=0.2, color="orange")+
     scale_x_log10() + scale_y_log10()+
-    xlab("log10(time) (s)") + ylab("log10(Flux) (erg/cm^2/s)")
+    xlab("log10(time) (s)") + ylab("log10(Flux) (erg/cm^2/s)") +
+    theme_bw()
 #p = p + theme(legend.title=element_blank())
 #print(p)
 ggsave(file="light-curves.pdf")
 
 # Just plot part of the light curves to have a better look
-#p = p + xlim(1.5e6,1.6e6)
-p = p + xlim(1.e3,5e3)
-ggsave(file="light-curves-zoom-in.pdf")
+##p = p + xlim(1.5e6,1.6e6)
+#p = p + xlim(1.e3,5e3)
+#ggsave(file="light-curves-zoom-in.pdf")
